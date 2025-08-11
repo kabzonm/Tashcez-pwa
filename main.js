@@ -1,7 +1,8 @@
 (() => {
   const $ = s => document.querySelector(s);
   const imageCanvas = $('#imageCanvas'), overlayCanvas = $('#overlayCanvas'), wrap = $('#canvasWrap');
-  const fileInput = $('#fileInput'), statusEl = $('#status'), toast = $('#toast');
+  const fileCam = $('#fileInputCamera'), fileGal = $('#fileInputGallery');
+  const statusEl = $('#status'), toast = $('#toast');
   const ctx = imageCanvas.getContext('2d'), octx = overlayCanvas.getContext('2d');
   let imageBitmap = null, overlayVisible = true;
 
@@ -15,10 +16,10 @@
     overlayCanvas.style.opacity = overlayVisible ? 1 : 0;
   }
 
-  async function onFile(e){
-    const f = e.target.files[0]; if(!f){ setStatus('לא נבחרה תמונה'); return; }
-    const ab = await f.arrayBuffer(); imageBitmap = await createImageBitmap(new Blob([ab]));
-    drawImageFit(); setStatus(`תמונה נטענה: ${f.name}`);
+  async function onFile(file){
+    if(!file){ setStatus('לא נבחרה תמונה'); return; }
+    const ab = await file.arrayBuffer(); imageBitmap = await createImageBitmap(new Blob([ab]));
+    drawImageFit(); setStatus(`תמונה נטענה: ${file.name}`);
   }
 
   function drawImageFit(){
@@ -44,31 +45,11 @@
   function clearGrid(){ octx.clearRect(0,0,overlayCanvas.width, overlayCanvas.height); }
 
   function exportGrid(){
-    // Placeholder: this will later be replaced by real grid detection.
-    const N = 14;
-    const cells = [];
-    for(let r=0;r<N;r++){
-      for(let c=0;c<N;c++){
-        cells.push({
-          r, c, type: "empty",
-          bbox: null, fg_mean: null,
-          ocr: null, meta: {}
-        });
-      }
-    }
-    const payload = {
-      version: "v3-demo",
-      rows: N, cols: N,
-      created_at: new Date().toISOString(),
-      source_image_present: !!imageBitmap,
-      cells, words: []
-    };
+    const N = 14, cells = [];
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++) cells.push({ r, c, type:"empty", bbox:null, fg_mean:null, ocr:null, meta:{} });
+    const payload = { version:"v3.1-demo", rows:N, cols:N, created_at:new Date().toISOString(), source_image_present: !!imageBitmap, cells, words:[] };
     const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'});
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'grid.json';
-    a.click();
-    URL.revokeObjectURL(a.href);
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='grid.json'; a.click(); URL.revokeObjectURL(a.href);
     showToast('grid.json נוצר');
   }
 
@@ -77,10 +58,12 @@
   $('#clearGridBtn').addEventListener('click', clearGrid);
   $('#toggleOverlayBtn').addEventListener('click', ()=>{ overlayVisible=!overlayVisible; overlayCanvas.style.opacity=overlayVisible?1:0; });
   $('#fitBtn').addEventListener('click', drawImageFit);
-  $('#clearBtn').addEventListener('click', ()=>{ imageBitmap=null; ctx.clearRect(0,0,imageCanvas.width,imageCanvas.height); clearGrid(); fileInput.value=''; setStatus('נוקה.'); });
+  $('#clearBtn').addEventListener('click', ()=>{ imageBitmap=null; ctx.clearRect(0,0,imageCanvas.width,imageCanvas.height); clearGrid(); setStatus('נוקה.'); });
   $('#exportGridBtn').addEventListener('click', exportGrid);
-  fileInput.addEventListener('change', onFile);
+
+  fileCam.addEventListener('change', e => onFile(e.target.files[0]));
+  fileGal.addEventListener('change', e => onFile(e.target.files[0]));
 
   new ResizeObserver(resizeCanvases).observe(wrap);
-  resizeCanvases(); setStatus('מוכן. טען/י תמונה והצג/י גריד דמו לאימות.');
+  resizeCanvases(); setStatus('מוכן. טען/י תמונה מצילום או גלריה.');
 })();
