@@ -4,20 +4,65 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="stylesheet" href="styles.css" />
   <title>פתרון תשחץ • v4.2.2</title>
 </head>
 <body class="rtl">
-  <main class="container">
-    <div class="controls">
-      <button id="detectGridBtn" class="btn btn-primary">גלה גריד (v4.2.2)</button>
-      <button id="fallbackBtn" class="btn">Fallback: Projection</button>
-      <button id="exportGridBtn" class="btn">ייצא grid.json</button>
-      <button id="toggleOverlayBtn" class="btn">הצג/הסתר שכבה</button>
+  <header class="header">
+    <div class="h-row container">
+      <div class="logo" id="logoVer" title="גרסת שרת">ת</div>
+      <div class="title">פתרון תשחץ • <span id="uiVersion">v4.2.2</span></div>
+      <span id="cvBadge" class="badge wait">OpenCV: טעינה…</span>
+      <div class="toolbar">
+        <button id="hardRefreshBtn" class="btn btn-danger">רענון קשיח</button>
+        <button id="clearBtn" class="btn btn-ghost">נקה</button>
+      </div>
     </div>
-    <div id="stats" style="font:12px ui-monospace,Menlo,monospace;color:#9fb2c9;"></div>
-    <canvas id="imageCanvas"></canvas>
-    <canvas id="overlayCanvas" class="overlay"></canvas>
-    <script src="main.js?v=4.2.2"></script>
+  </header>
+
+  <main class="container">
+    <section class="card">
+      <h2>טעינת תמונה</h2>
+      <p class="helper">גרסה v4.2.2: זיהוי קווים Hough בלבד (מדויק ויציב), צבעים שונים לאנכי/אופקי, Fallback Projection לגיבוי.</p>
+      <div class="controls">
+        <label for="fileInputCamera" class="btn btn-accent label-file">📷 צילום</label>
+        <input id="fileInputCamera" type="file" accept="image/*" capture="environment" />
+        <label for="fileInputGallery" class="btn btn-primary label-file">🖼️ גלריה</label>
+        <input id="fileInputGallery" type="file" accept="image/*" />
+        <label class="helper"><input id="fullRes" type="checkbox" checked> טעינת תמונה ברזולוציה מלאה</label>
+      </div>
+
+      <div class="canvas-wrap" id="canvasWrap">
+        <canvas id="imageCanvas"></canvas>
+        <canvas id="overlayCanvas" class="overlay"></canvas>
+      </div>
+
+      <div class="controls">
+        <button id="detectGridBtn" class="btn btn-primary" disabled>גלה גריד (v4.2.2)</button>
+        <button id="fallbackBtn" class="btn">Fallback: Projection</button>
+        <button id="exportGridBtn" class="btn">ייצא grid.json</button>
+        <button id="toggleOverlayBtn" class="btn">הצג/הסתר שכבה</button>
+      </div>
+
+      <div class="status" id="status">מוכן. אין תמונה טעונה.</div>
+      <div class="helper" id="meta"></div>
+      <div class="helper" id="stats"></div>
+    </section>
   </main>
+
+  <footer class="container">
+    <div class="helper">UI: v4.2.2 • לוגו מציג גרסת שרת מתוך version.txt</div>
+  </footer>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="main.js?v=4.2.2"></script>
+  <script async src="https://docs.opencv.org/4.x/opencv.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(console.error));
+    }
+  </script>
 </body>
 </html>
