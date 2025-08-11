@@ -4,75 +4,20 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
-  <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="stylesheet" href="styles.css" />
-  <title>פתרון תשחץ • v4</title>
+  <title>פתרון תשחץ • v4.2.2</title>
 </head>
 <body class="rtl">
-  <header class="header">
-    <div class="h-row container">
-      <div class="logo">ת</div>
-      <div class="title">פתרון תשחץ • v4</div>
-      <span class="badge">PWA v4</span>
-      <div class="toolbar">
-        <button id="installBtn" class="btn btn-primary" hidden>התקן כאפליקציה</button>
-        <button id="clearBtn" class="btn btn-ghost">נקה</button>
-      </div>
-    </div>
-  </header>
-
   <main class="container">
-    <div class="grid">
-      <section class="card">
-        <h2>טעינת תמונה</h2>
-        <p class="helper">צילום או גלריה. v4 כולל OpenCV.js לצורך זיהוי קווי גריד + יישור פרספקטיבה.</p>
-        <div class="controls">
-          <label for="fileInputCamera" class="btn btn-accent label-file">📷 צילום</label>
-          <input id="fileInputCamera" type="file" accept="image/*" capture="environment" />
-          <label for="fileInputGallery" class="btn btn-primary label-file">🖼️ גלריה</label>
-          <input id="fileInputGallery" type="file" accept="image/*" />
-          <button id="fitBtn" class="btn">התאם לתצוגה</button>
-          <button id="toggleOverlayBtn" class="btn">הצג/הסתר שכבה</button>
-        </div>
-        <div class="canvas-wrap" id="canvasWrap">
-          <canvas id="imageCanvas"></canvas>
-          <canvas id="overlayCanvas" class="overlay"></canvas>
-        </div>
-        <div class="controls">
-          <button id="detectGridBtn" class="btn btn-primary">גלה גריד (v4)</button>
-          <button id="toggleMasksBtn" class="btn">מסכות: טקסט/הגדרה</button>
-          <button id="exportGridBtn" class="btn">ייצא grid.json</button>
-        </div>
-        <div class="status" id="status">מוכן. אין תמונה טעונה.</div>
-      </section>
-
-      <aside class="card">
-        <h2>הערות זיהוי</h2>
-        <ul class="helper">
-          <li>מסכה לטקסט (אותיות דקות) ומסכה למלבני הגדרה מונעות בלבול עם קווי רשת.</li>
-          <li>קווי רשת מתקבלים רק אם הם כמעט קצה‑לקצה + מרווחים מחזוריים.</li>
-          <li>זהו בסיס ראשוני – נכייל ספים יחד על תמונות אמיתיות.</li>
-        </ul>
-        <div class="helper" id="warnings"></div>
-      </aside>
+    <div class="controls">
+      <button id="detectGridBtn" class="btn btn-primary">גלה גריד (v4.2.2)</button>
+      <button id="fallbackBtn" class="btn">Fallback: Projection</button>
+      <button id="exportGridBtn" class="btn">ייצא grid.json</button>
+      <button id="toggleOverlayBtn" class="btn">הצג/הסתר שכבה</button>
     </div>
-
-    <footer>
-      <div class="helper">
-        גרסה: <span id="ver">v4</span> • Service Worker מעודכן לעדכון מיידי. בדיקת גרסה: <code>/version.txt</code>
-      </div>
-    </footer>
+    <div id="stats" style="font:12px ui-monospace,Menlo,monospace;color:#9fb2c9;"></div>
+    <canvas id="imageCanvas"></canvas>
+    <canvas id="overlayCanvas" class="overlay"></canvas>
+    <script src="main.js?v=4.2.2"></script>
   </main>
-
-  <div class="toast" id="toast"></div>
-
-  <script src="main.js"></script>
-  <!-- OpenCV.js CDN -->
-  <script async src="https://docs.opencv.org/4.x/opencv.js" onload="cv['onRuntimeInitialized'] && cv.onRuntimeInitialized();" ></script>
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(console.error));
-    }
-  </script>
 </body>
 </html>
