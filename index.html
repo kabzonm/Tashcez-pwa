@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b1220" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="stylesheet" href="styles.css" />
+  <title>פתרון תשחץ • Skeleton</title>
+</head>
+<body class="rtl">
+  <header class="header">
+    <div class="h-row container">
+      <div class="logo">ת</div>
+      <div class="title">פתרון תשחץ • Skeleton</div>
+      <span class="badge">PWA v3</span>
+      <div class="toolbar">
+        <button id="installBtn" class="btn btn-primary" hidden>התקן כאפליקציה</button>
+        <button id="clearBtn" class="btn btn-ghost">נקה</button>
+      </div>
+    </div>
+  </header>
+  <main class="container">
+    <div class="grid">
+      <section class="card">
+        <h2>טעינת תמונה</h2>
+        <p class="helper">גרסת v3: עדיין שלד, הוספנו ייצוא grid.json (דמו) כדי לבדוק את הזרימה עד ה-API.</p>
+        <div class="controls">
+          <label for="fileInput" class="btn btn-accent label-file">📷 העלאת תמונה</label>
+          <input id="fileInput" type="file" accept="image/*" capture="environment" />
+          <button id="fitBtn" class="btn">התאם לתצוגה</button>
+          <button id="toggleOverlayBtn" class="btn">הצג/הסתר שכבה</button>
+          <button id="exportGridBtn" class="btn btn-primary">ייצא grid.json</button>
+        </div>
+        <div class="canvas-wrap" id="canvasWrap">
+          <canvas id="imageCanvas"></canvas>
+          <canvas id="overlayCanvas" class="overlay"></canvas>
+        </div>
+        <div class="status" id="status">מוכן. אין תמונה טעונה.</div>
+      </section>
+      <aside class="card">
+        <h2>גריד דמו</h2>
+        <p class="helper">בקרוב נחליף לזיהוי קווים אמיתי.</p>
+        <div class="controls">
+          <button id="drawGridBtn" class="btn btn-primary">צייר גריד דמו</button>
+          <button id="clearGridBtn" class="btn">מחק גריד</button>
+        </div>
+        <ul class="helper">
+          <li>v3: כפתור ייצוא grid.json (דמו) להדמיית צינור ל-API.</li>
+        </ul>
+      </aside>
+    </div>
+    <footer>
+      <div class="helper">
+        שלד זה עובד על HTTPS ומותקן למסך הבית. Service Worker כלול.
+      </div>
+    </footer>
+  </main>
+  <div class="toast" id="toast"></div>
+  <script src="main.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(console.error));
+    }
+  </script>
+</body>
+</html>
