@@ -2,27 +2,26 @@
   const $ = s => document.querySelector(s);
   const imageCanvas = $('#imageCanvas'), overlayCanvas = $('#overlayCanvas'), wrap = $('#canvasWrap');
   const fileCam = $('#fileInputCamera'), fileGal = $('#fileInputGallery'), fullResChk = $('#fullRes');
-  const statusEl = $('#status'), toast = $('#toast'), statsEl = $('#stats'), metaEl = $('#meta'), cvBadge = $('#cvBadge'), logoVer = $('#logoVer');
-  const detectBtn = $('#detectGridBtn'), hardRefreshBtn = $('#hardRefreshBtn');
+  const statusEl = $('#status'), toast = $('#toast'), warnEl = $('#warnings'), metaEl = $('#meta'), cvBadge = $('#cvBadge'), logoVer = $('#logoVer');
+  const detectBtn = $('#detectGridBtn'), detectApiBtn = $('#detectApiBtn'), exportBtn = $('#exportGridBtn'), toggleBtn = $('#toggleOverlayBtn');
+  const logEl = $('#log');
   const ctx = imageCanvas.getContext('2d'), octx = overlayCanvas.getContext('2d');
 
   let overlayVisible = true;
   let srcImg = null;   // full-res ImageBitmap
   let viewMat = null;  // warped cv.Mat for processing
-  let gridX = [], gridY = [];
+  let gridX = [], gridY = [], warnings = [];
   let cvReady = false;
 
-  // Expose small state for optional patches
-  window.__tash = { overlayVisible, gridX, gridY, viewMat, cvReady };
-
+  const log = (...a)=>{ const line=a.map(x=>typeof x==='object'?JSON.stringify(x):String(x)).join(' '); logEl.textContent+=line+'\n'; logEl.scrollTop=logEl.scrollHeight; console.log(...a); };
   const showToast = m => { toast.textContent = m; toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'),1600); };
   const setStatus = m => statusEl.textContent = m;
 
   // Show server version in logo
-  fetch('version.txt?ts='+Date.now()).then(r=>r.text()).then(t=>{ logoVer.textContent = (t.split('\\n')[0]||'ת').trim(); }).catch(()=>{});
+  fetch('version.txt?ts='+Date.now()).then(r=>r.text()).then(t=>{ logoVer.textContent = (t.split('\n')[0]||'ת').trim(); }).catch(()=>{});
 
-  // Hard refresh: unregister SW + clear caches + reload
-  async function hardRefresh(){
+  // Hard refresh
+  $('#hardRefreshBtn')?.addEventListener('click', async ()=>{
     try{
       if ('serviceWorker' in navigator) {
         const regs = await navigator.serviceWorker.getRegistrations();
@@ -33,19 +32,16 @@
         await Promise.all(keys.map(k => caches.delete(k)));
       }
     }catch(e){ console.warn(e); }
-    const ts = Date.now();
-    location.replace(location.pathname + '?v=' + ts);
-  }
-  hardRefreshBtn?.addEventListener('click', hardRefresh);
+    location.replace(location.pathname + '?v=' + Date.now());
+  });
 
   // CV readiness
   function checkCV(){
-    if (window.cv && cv.Mat){
+    if (window.cv && cv.Mat && typeof cv.Mat === 'function'){
       cvReady = true;
       detectBtn.disabled = false;
       cvBadge.classList.remove('wait'); cvBadge.classList.add('ok');
       cvBadge.textContent = 'OpenCV: מוכן';
-      window.__tash.cvReady = true;
       return true;
     }
     return false;
@@ -66,13 +62,12 @@
   function drawView(){
     ctx.clearRect(0,0,imageCanvas.width,imageCanvas.height);
     if(!viewMat) return;
-    // draw gray Mat into canvas
     const w = viewMat.cols, h = viewMat.rows;
     const imgData = new ImageData(w, h);
-    for(let y=0;y<h;y++){ for(let x=0;x<w;x++){ const v = viewMat.ucharPtr(y,x)[0]; const idx=(y*w+x)*4; imgData.data[idx]=v; imgData.data[idx+1]=v; imgData.data[idx+2]=v; imgData.data[idx+3]=255; } }
-    const tmp = document.createElement('canvas'); tmp.width=w; tmp.height=h; tmp.getContext('2d').putImageData(imgData,0,0);
+    for(let i=0;i<w*h;i++){ const v = viewMat.ucharPtr(Math.floor(i/w), i%w)[0]; imgData.data[i*4+0]=v; imgData.data[i*4+1]=v; imgData.data[i*4+2]=v; imgData.data[i*4+3]=255; }
     const cw=imageCanvas.width, ch=imageCanvas.height, ar=w/h, arC=cw/ch;
     let dw,dh,dx,dy; if(ar>arC){ dw=cw; dh=Math.round(cw/ar); dx=0; dy=Math.round((ch-dh)/2); } else { dh=ch; dw=Math.round(ch*ar); dy=0; dx=Math.round((cw-dw)/2); }
+    const tmp = document.createElement('canvas'); tmp.width=w; tmp.height=h; tmp.getContext('2d').putImageData(imgData,0,0);
     ctx.imageSmoothingQuality='high'; ctx.drawImage(tmp,dx,dy,dw,dh);
   }
 
@@ -92,37 +87,36 @@
   async function onFile(file){
     if(!file){ setStatus('לא נבחרה תמונה'); return; }
     const blob = file.slice(0, file.size, file.type);
-    srcImg = await createImageBitmap(blob);
-    metaEl.textContent = `תמונה נטענה (${srcImg.width}×${srcImg.height})`;
-
-    const maxSide = fullResChk.checked ? Math.max(srcImg.width, srcImg.height) : 1600;
-    const scale = Math.min(1, maxSide / Math.max(srcImg.width, srcImg.height));
-    const tw = Math.max(1, Math.round(srcImg.width * scale));
-    const th = Math.max(1, Math.round(srcImg.height * scale));
+    const img = await createImageBitmap(blob);
+    srcImg = img;
+    metaEl.textContent = `תמונה נטענה (${img.width}×${img.height})`;
+    if (!cvReady) await new Promise(r=>setTimeout(r,300));
+    const maxSide = fullResChk.checked ? Math.max(img.width, img.height) : 1600;
+    const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+    const tw = Math.max(1, Math.round(img.width * scale));
+    const th = Math.max(1, Math.round(img.height * scale));
     const tmp = document.createElement('canvas'); tmp.width=tw; tmp.height=th;
-    tmp.getContext('2d').drawImage(srcImg,0,0,tw,th);
+    tmp.getContext('2d').drawImage(img,0,0,tw,th);
     const tctx = tmp.getContext('2d');
-
-    let src = new cv.Mat(th, tw, cv.CV_8UC4);
-    src.data.set(tctx.getImageData(0,0,tw,th).data);
+    let src = new cv.Mat(th, tw, cv.CV_8UC4); src.data.set(tctx.getImageData(0,0,tw,th).data);
     let gray = new cv.Mat(); cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
     let clahe = new cv.Mat(); cv.equalizeHist(gray, clahe);
     let bin = new cv.Mat(); cv.threshold(clahe, bin, 0, 255, cv.THRESH_BINARY_INV+cv.THRESH_OTSU);
-
     let cnts = new cv.MatVector(), hier = new cv.Mat();
     cv.findContours(bin, cnts, hier, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
-    let bestIdx=-1, bestArea=0;
-    for(let i=0;i<cnts.size();i++){ const a=cv.contourArea(cnts.get(i)); if(a>bestArea){ bestArea=a; bestIdx=i; } }
-    let warped = new cv.Mat(); const baseSize=1024;
+    let bestIdx=-1, bestArea=0; for(let i=0;i<cnts.size();i++){ const a=cv.contourArea(cnts.get(i)); if(a>bestArea){bestArea=a; bestIdx=i;} }
+    let warped = new cv.Mat();
     if(bestIdx>=0){
-      let cnt = cnts.get(bestIdx); let peri=cv.arcLength(cnt,true); let approx=new cv.Mat();
-      cv.approxPolyDP(cnt, approx, 0.02*peri, true);
+      let cnt = cnts.get(bestIdx);
+      let peri = cv.arcLength(cnt, true);
+      let approx = new cv.Mat(); cv.approxPolyDP(cnt, approx, 0.02*peri, true);
       if(approx.rows===4){
         const pts=[]; for(let i=0;i<4;i++){ const p=approx.intPtr(i,0); pts.push({x:p[0],y:p[1]}); }
         pts.sort((a,b)=>a.y-b.y); const top=[pts[0],pts[1]].sort((a,b)=>a.x-b.x), bot=[pts[2],pts[3]].sort((a,b)=>a.x-b.x);
-        const srcTri=cv.matFromArray(4,1,cv.CV_32FC2,[top[0].x,top[0].y, top[1].x,top[1].y, bot[1].x,bot[1].y, bot[0].x,bot[0].y]);
-        const dstTri=cv.matFromArray(4,1,cv.CV_32FC2,[0,0,  baseSize,0,  baseSize,baseSize,  0,baseSize]);
-        const M=cv.getPerspectiveTransform(srcTri,dstTri);
+        const srcTri = cv.matFromArray(4,1,cv.CV_32FC2,[top[0].x,top[0].y, top[1].x,top[1].y, bot[1].x,bot[1].y, bot[0].x,bot[0].y]);
+        const baseSize = 1024;
+        const dstTri = cv.matFromArray(4,1,cv.CV_32FC2,[0,0, baseSize,0, baseSize,baseSize, 0,baseSize]);
+        const M = cv.getPerspectiveTransform(srcTri, dstTri);
         cv.warpPerspective(clahe, warped, M, new cv.Size(baseSize,baseSize), cv.INTER_LINEAR, cv.BORDER_REPLICATE);
         srcTri.delete(); dstTri.delete(); M.delete();
       } else { warped = clahe.clone(); }
@@ -130,21 +124,18 @@
     } else { warped = clahe.clone(); }
     if(viewMat) try{ viewMat.delete(); }catch(e){}
     viewMat = warped;
-    window.__tash.viewMat = viewMat;
-
     [src,gray,clahe,bin,cnts,hier].forEach(m=>{ try{ m.delete(); }catch(e){} });
-
-    gridX=[]; gridY=[];
-    window.__tash.gridX = gridX; window.__tash.gridY = gridY;
+    gridX=[]; gridY=[]; warnings=[];
     resizeCanvases();
     setStatus('תמונה נטענה ומיושרת. לחץ "גלה גריד".');
   }
 
-  // Hough-only detection with merging; no spacing fitting
+  // Hough-only grid detection
   function detectGrid(){
-    if(!cvReady){ showToast('OpenCV עדיין נטען...'); return; }
-    if(!viewMat){ showToast('טען תמונה קודם'); return; }
-    gridX=[]; gridY=[]; drawOverlays();
+    log('[detect] start');
+    if(!cvReady){ showToast('OpenCV עדיין נטען...'); log('cv not ready'); return; }
+    if(!viewMat){ showToast('טען תמונה קודם'); log('no viewMat'); return; }
+    warnings = []; gridX=[]; gridY=[]; drawOverlays();
 
     let img = viewMat.clone();
     cv.GaussianBlur(img, img, new cv.Size(3,3), 0);
@@ -172,8 +163,8 @@
       const x1=p[0], y1=p[1], x2=p[2], y2=p[3];
       const dx = x2-x1, dy=y2-y1;
       const len = Math.hypot(dx,dy);
-      if (Math.abs(dy) < 2 && len >= 0.85*W) yRaw.push((y1+y2)/2);
-      else if (Math.abs(dx) < 2 && len >= 0.85*H) xRaw.push((x1+x2)/2);
+      if(Math.abs(dy) < 2 && len >= 0.85*W){ yRaw.push((y1+y2)/2); }
+      else if(Math.abs(dx) < 2 && len >= 0.85*H){ xRaw.push((x1+x2)/2); }
     }
 
     function merge(vals, tol){
@@ -188,75 +179,91 @@
     const xM = merge(xRaw, W*0.01);
     const yM = merge(yRaw, H*0.01);
 
-    // map to overlay canvas
+    // Map to overlay coords
     const cw=overlayCanvas.width, ch=overlayCanvas.height;
-    const ar=viewMat.cols/viewMat.rows, arC=cw/ch;
-    let dw,dh,dx,dy; if(ar>arC){ dw=cw; dh=Math.round(cw/ar); dx=0; dy=Math.round((ch-dh)/2); } else { dh=ch; dw=Math.round(ch*ar); dy=0; dx=Math.round((cw-dw)/2); }
+    const ar = viewMat.cols/viewMat.rows, arC = cw/ch;
+    let dw,dh,dx,dy; if(ar>arC){ dw=cw; dh=Math.round(cw/ar); dx=0; dy=Math.round((ch-dh)/2); } else { dh=ch; dw=Math.round(cw*1.0/ar); dy=0; dx=Math.round((cw-dw)/2); }
     const sx = dw / viewMat.cols, sy = dh / viewMat.rows;
+
     gridX = xM.map(x => Math.round(dx + x*sx));
     gridY = yM.map(y => Math.round(dy + y*sy));
 
-    window.__tash.gridX = gridX; window.__tash.gridY = gridY;
-
     drawOverlays();
-    statsEl.textContent = `Hough: אנכיים=${xM.length}, אופקיים=${yM.length}`;
-
+    warnEl.textContent = `Hough: אנכיים=${xM.length}, אופקיים=${yM.length}`;
     [img,bin,cnts,hier,edges,lines].forEach(m=>{ try{ m.delete(); }catch(e){} });
   }
 
-  function fallbackProjection(){
-    if(!viewMat){ showToast('טען תמונה קודם'); return; }
-    let img = viewMat.clone();
-    let bin = new cv.Mat(); cv.adaptiveThreshold(img, bin, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY_INV, 31, 5);
-    const W = bin.cols, H = bin.rows;
-    const sumCols = new Float32Array(W), sumRows = new Float32Array(H);
-    for(let y=0;y<H;y++){ for(let x=0;x<W;x++){ sumRows[y]+=bin.ucharPtr(y,x)[0]; } }
-    for(let x=0;x<W;x++){ for(let y=0;y<H;y++){ sumCols[x]+=bin.ucharPtr(y,x)[0]; } }
-    const smooth = (arr, k=25) => { const out=new Float32Array(arr.length), half=(k>>1);
-      for(let i=0;i<arr.length;i++){ let s=0,c=0; for(let j=-half;j<=half;j++){ const t=i+j; if(t>=0&&t<arr.length){s+=arr[t];c++;}} out[i]=s/c; } return out; };
-    const rS=smooth(sumRows,25), cS=smooth(sumCols,25);
-    function peaks(a,minDist,thrFrac=0.6){ const out=[]; let last=-1e9; const thr=thrFrac*Math.max(...a);
-      for(let i=1;i<a.length-1;i++){ if(a[i]>a[i-1]&&a[i]>a[i+1]&&a[i]>thr){ if(i-last>minDist){ out.push(i); last=i; } } } return out; }
-    const minDy=Math.round(H/20), minDx=Math.round(W/20);
-    const ys=[0,...peaks(rS,minDy),H], xs=[0,...peaks(cS,minDx),W];
-    const cw=overlayCanvas.width, ch=overlayCanvas.height, ar=viewMat.cols/viewMat.rows, arC=cw/ch;
-    let dw,dh,dx,dy; if(ar>arC){ dw=cw; dh=Math.round(cw/ar); dx=0; dy=Math.round((ch-dh)/2); } else { dh=ch; dw=Math.round(ch*ar); dy=0; dx=Math.round((cw-dw)/2); }
-    const sx = dw / viewMat.cols, sy = dh / viewMat.rows;
-    gridX = xs.map(x => Math.round(dx + x*sx));
-    gridY = ys.map(y => Math.round(dy + y*sy));
-    window.__tash.gridX = gridX; window.__tash.gridY = gridY;
+  // API: send image to Netlify Function
+  async function detectGridAPI(){
+    if(!srcImg){ showToast('טען תמונה קודם'); return; }
+    setStatus('שולח ל-API...');
+    // Send original blob (re-encode from canvas for simplicity)
+    const tmp = document.createElement('canvas'); tmp.width=srcImg.width; tmp.height=srcImg.height;
+    tmp.getContext('2d').drawImage(srcImg,0,0);
+    const blob = await new Promise(r=> tmp.toBlob(r,'image/jpeg',0.95));
+    const b64 = await blobToBase64(blob);
+    const resp = await fetch('/.netlify/functions/solve-grid', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ imageBase64: b64 })
+    });
+    const data = await resp.json();
+    log('[api]', data);
+    // Expecting: {gridX:[...], gridY:[...], rows, cols}
+    // Map directly to overlay (assuming already warped-like topology). For v1, we just scale to canvas bounds.
+    const cw=overlayCanvas.width, ch=overlayCanvas.height;
+    gridX = (data.gridX||[]).map(x=>Math.round(x/ (data.width||1024) * cw));
+    gridY = (data.gridY||[]).map(y=>Math.round(y/ (data.height||1024) * ch));
     drawOverlays();
-    [img,bin].forEach(m=>{ try{ m.delete(); }catch(e){} });
+    warnEl.textContent = `API: rows=${data.rows||'?'} cols=${data.cols||'?'}`;
+    setStatus('ה‑API החזיר תוצאה');
+  }
+
+  function blobToBase64(blob){
+    return new Promise((resolve,reject)=>{
+      const fr = new FileReader();
+      fr.onload = () => resolve(fr.result.split(',')[1]);
+      fr.onerror = reject;
+      fr.readAsDataURL(blob);
+    });
   }
 
   function exportGrid(){
     const cols = Math.max(1, gridX.length - 1);
     const rows = Math.max(1, gridY.length - 1);
-    const payload = { version:"v4.2.2", rows, cols, created_at:new Date().toISOString(), cells:[], words:[] };
+    const cells = [];
+    for(let r=0;r<rows;r++){
+      for(let c=0;c<cols;c++){
+        const x0 = gridX[c], x1 = gridX[c+1];
+        const y0 = gridY[r], y1 = gridY[r+1];
+        cells.push({ r, c, type: "unknown", bbox: [x0,y0,x1-x0,y1-y0], stats: {}, ocr: null, meta: {} });
+      }
+    }
+    const payload = { version:"v4.2.3", rows, cols, created_at:new Date().toISOString(), warnings, cells, words:[] };
     const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='grid.json'; a.click(); URL.revokeObjectURL(a.href);
+    showToast('grid.json נוצר');
   }
 
   function clearAll(){
     try{ if(viewMat) viewMat.delete(); }catch(e){}
-    viewMat = null; srcImg = null; gridX=[]; gridY=[];
-    window.__tash.viewMat = null; window.__tash.gridX = []; window.__tash.gridY = [];
+    viewMat = null; srcImg = null; gridX=[]; gridY=[]; warnings=[];
     ctx.clearRect(0,0,imageCanvas.width,imageCanvas.height);
     octx.clearRect(0,0,overlayCanvas.width, overlayCanvas.height);
-    setStatus('נוקה.');
-    metaEl.textContent=''; statsEl.textContent='';
-    // reset inputs
-    const cam=$('#fileInputCamera'), gal=$('#fileInputGallery'); if(cam) cam.value=''; if(gal) gal.value='';
+    (fileCam||{}).value = ''; (fileGal||{}).value = '';
+    setStatus('נוקה.'); metaEl.textContent=''; warnEl.textContent=''; logEl.textContent='';
   }
 
-  $('#detectGridBtn').addEventListener('click', detectGrid);
-  $('#fallbackBtn').addEventListener('click', fallbackProjection);
-  $('#exportGridBtn').addEventListener('click', exportGrid);
-  $('#toggleOverlayBtn').addEventListener('click', ()=>{ overlayVisible=!overlayVisible; overlayCanvas.style.opacity=overlayVisible?1:0; });
-  $('#clearBtn').addEventListener('click', clearAll);
-  fileCam.addEventListener('change', e => onFile(e.target.files[0]));
-  fileGal.addEventListener('change', e => onFile(e.target.files[0]));
+  // UI binds
+  detectBtn?.addEventListener('click', detectGrid);
+  detectApiBtn?.addEventListener('click', detectGridAPI);
+  exportBtn?.addEventListener('click', exportGrid);
+  toggleBtn?.addEventListener('click', ()=>{ overlayVisible=!overlayVisible; overlayCanvas.style.opacity=overlayVisible?1:0; });
+  $('#clearBtn')?.addEventListener('click', clearAll);
+  fileCam?.addEventListener('change', e => onFile(e.target.files[0]));
+  fileGal?.addEventListener('change', e => onFile(e.target.files[0]));
 
+  // initial
+  new ResizeObserver(resizeCanvases).observe(wrap);
   resizeCanvases();
-  setStatus('מוכן. טען/י תמונה, ואז "גלה גריד".');
+  setStatus('מוכן. טען/י תמונה, ואז "גלה גריד (מקומי)" או "גלה גריד (API)".');
 })();

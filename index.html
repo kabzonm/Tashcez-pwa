@@ -6,13 +6,13 @@
   <meta name="theme-color" content="#0b1220" />
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="stylesheet" href="styles.css" />
-  <title>פתרון תשחץ • v4.2.2</title>
+  <title>פתרון תשחץ • v4.2.3</title>
 </head>
 <body class="rtl">
   <header class="header">
     <div class="h-row container">
       <div class="logo" id="logoVer" title="גרסת שרת">ת</div>
-      <div class="title">פתרון תשחץ • <span id="uiVersion">v4.2.2</span></div>
+      <div class="title">פתרון תשחץ • <span id="uiVersion">v4.2.3</span></div>
       <span id="cvBadge" class="badge wait">OpenCV: טעינה…</span>
       <div class="toolbar">
         <button id="hardRefreshBtn" class="btn btn-danger">רענון קשיח</button>
@@ -24,7 +24,6 @@
   <main class="container">
     <section class="card">
       <h2>טעינת תמונה</h2>
-      <p class="helper">גרסה v4.2.2: זיהוי קווים Hough בלבד (מדויק ויציב), צבעים שונים לאנכי/אופקי, Fallback Projection לגיבוי.</p>
       <div class="controls">
         <label for="fileInputCamera" class="btn btn-accent label-file">📷 צילום</label>
         <input id="fileInputCamera" type="file" accept="image/*" capture="environment" />
@@ -39,25 +38,26 @@
       </div>
 
       <div class="controls">
-        <button id="detectGridBtn" class="btn btn-primary" disabled>גלה גריד (v4.2.2)</button>
-        <button id="fallbackBtn" class="btn">Fallback: Projection</button>
+        <button id="detectGridBtn" class="btn btn-primary" disabled>גלה גריד (מקומי)</button>
+        <button id="detectApiBtn" class="btn btn-secondary">גלה גריד (API)</button>
         <button id="exportGridBtn" class="btn">ייצא grid.json</button>
         <button id="toggleOverlayBtn" class="btn">הצג/הסתר שכבה</button>
       </div>
 
       <div class="status" id="status">מוכן. אין תמונה טעונה.</div>
       <div class="helper" id="meta"></div>
-      <div class="helper" id="stats"></div>
+      <div class="helper" id="warnings"></div>
+      <pre id="log" class="log"></pre>
     </section>
   </main>
 
   <footer class="container">
-    <div class="helper">UI: v4.2.2 • לוגו מציג גרסת שרת מתוך version.txt</div>
+    <div class="helper">גרסת UI: v4.2.3 • הלוגו מציג את /version.txt</div>
   </footer>
 
   <div class="toast" id="toast"></div>
 
-  <script src="main.js?v=4.2.2"></script>
+  <script src="main.js?v=4.2.3"></script>
   <script async src="https://docs.opencv.org/4.x/opencv.js"></script>
   <script>
     if ('serviceWorker' in navigator) {
