@@ -1,4 +1,4 @@
-const CACHE_NAME='tashachatz-skel-v4.2.3';
+const CACHE_NAME='tashachatz-skel-v4.3.1';
 const ASSETS=['./','./index.html','./styles.css','./main.js?v=4.2.3','./manifest.webmanifest','./icons/icon-192.png','./icons/icon-512.png','./version.txt'];
 
 self.addEventListener('install', e => {

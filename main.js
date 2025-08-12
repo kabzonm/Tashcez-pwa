@@ -267,4 +267,3 @@
   resizeCanvases();
   setStatus('מוכן. טען/י תמונה, ואז "גלה גריד (מקומי)" או "גלה גריד (API)".');
 })();
-// v4.3.0 - Model selection & legend code added here
