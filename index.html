@@ -1,68 +1,24 @@
-<!doctype html>
-<html lang="he" dir="rtl">
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#0b1220" />
-  <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="stylesheet" href="styles.css" />
-  <title>פתרון תשחץ • v4.2.3</title>
+<meta charset="UTF-8">
+<title>Tashachatz v4.2.4</title>
+<link rel="stylesheet" href="styles.css">
+<script defer src="main.js"></script>
 </head>
-<body class="rtl">
-  <header class="header">
-    <div class="h-row container">
-      <div class="logo" id="logoVer" title="גרסת שרת">ת</div>
-      <div class="title">פתרון תשחץ • <span id="uiVersion">v4.2.3</span></div>
-      <span id="cvBadge" class="badge wait">OpenCV: טעינה…</span>
-      <div class="toolbar">
-        <button id="hardRefreshBtn" class="btn btn-danger">רענון קשיח</button>
-        <button id="clearBtn" class="btn btn-ghost">נקה</button>
-      </div>
-    </div>
-  </header>
-
-  <main class="container">
-    <section class="card">
-      <h2>טעינת תמונה</h2>
-      <div class="controls">
-        <label for="fileInputCamera" class="btn btn-accent label-file">📷 צילום</label>
-        <input id="fileInputCamera" type="file" accept="image/*" capture="environment" />
-        <label for="fileInputGallery" class="btn btn-primary label-file">🖼️ גלריה</label>
-        <input id="fileInputGallery" type="file" accept="image/*" />
-        <label class="helper"><input id="fullRes" type="checkbox" checked> טעינת תמונה ברזולוציה מלאה</label>
-      </div>
-
-      <div class="canvas-wrap" id="canvasWrap">
-        <canvas id="imageCanvas"></canvas>
-        <canvas id="overlayCanvas" class="overlay"></canvas>
-      </div>
-
-      <div class="controls">
-        <button id="detectGridBtn" class="btn btn-primary" disabled>גלה גריד (מקומי)</button>
-        <button id="detectApiBtn" class="btn btn-secondary">גלה גריד (API)</button>
-        <button id="exportGridBtn" class="btn">ייצא grid.json</button>
-        <button id="toggleOverlayBtn" class="btn">הצג/הסתר שכבה</button>
-      </div>
-
-      <div class="status" id="status">מוכן. אין תמונה טעונה.</div>
-      <div class="helper" id="meta"></div>
-      <div class="helper" id="warnings"></div>
-      <pre id="log" class="log"></pre>
-    </section>
-  </main>
-
-  <footer class="container">
-    <div class="helper">גרסת UI: v4.2.3 • הלוגו מציג את /version.txt</div>
-  </footer>
-
-  <div class="toast" id="toast"></div>
-
-  <script src="main.js?v=4.2.3"></script>
-  <script async src="https://docs.opencv.org/4.x/opencv.js"></script>
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(console.error));
-    }
-  </script>
+<body>
+<h1>Tashachatz v4.2.4</h1>
+<div class="controls">
+  <label for="modelSelect">בחר מודל:</label>
+  <select id="modelSelect">
+    <option value="gpt-4o" selected>gpt-4o (ברירת מחדל)</option>
+    <option value="gpt-5">gpt-5</option>
+    <option value="gpt-5-mini">gpt-5-mini</option>
+  </select>
+  <button id="runSingle">גלה גריד (API)</button>
+  <button id="runAll">הרץ את כל המודלים</button>
+</div>
+<canvas id="gridCanvas"></canvas>
+<div id="legend"></div>
 </body>
 </html>
