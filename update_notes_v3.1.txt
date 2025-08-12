@@ -1,0 +1,8 @@
+Update v3.1 — 2025-08-11
+
+- הוספנו שני קלטים נפרדים: **צילום** (`capture="environment"`) ו־**גלריה** (ללא `capture`), כי ב-iOS קלט עם capture פותח מצלמה בלבד.
+- אין שינוי בקבצי service worker או manifest.
+
+קבצים לעדכן בריפו:
+- index.html
+- main.js
