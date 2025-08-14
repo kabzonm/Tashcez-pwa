@@ -3,21 +3,22 @@
   const imageCanvas = $('#imageCanvas'), overlayCanvas = $('#overlayCanvas'), wrap = $('#canvasWrap');
   const fileCam = $('#fileInputCamera'), fileGal = $('#fileInputGallery');
   const detectCanvasBtn = $('#detectCanvasBtn'), toggleBtn = $('#toggleOverlayBtn'), exportBtn = $('#exportGridBtn');
-  const statusEl = $('#status'), gridSizeOutput = $('#gridSizeOutput'), logEl = $('#log');
+  const statusEl = $('#status'), gridSizeOutput = $('#gridSizeOutput'), extraInfo = $('#extraInfo'), logEl = $('#log');
 
   const iCtx = imageCanvas.getContext('2d');
   const oCtx = overlayCanvas.getContext('2d');
 
   let srcImg = null;
   let overlayVisible = true;
-  let gridX = [], gridY = [];
+  let gridX = [], gridY = []; // filtered full-cells lines
 
   const DARK_PIXEL_THRESHOLD = 128 * 3;
   const LINE_DETECTION_SENSITIVITY = 0.75;
 
   const log = (...a)=>{ const line=a.map(x=>typeof x==='object'?JSON.stringify(x):String(x)).join(' '); logEl.textContent+=line+'\n'; logEl.scrollTop=logEl.scrollHeight; console.log(...a); };
+  const setStatus = t => statusEl.textContent = t;
 
-  // Cache bust logo version
+  // Version in logo
   fetch('version.txt?ts='+Date.now()).then(r=>r.text()).then(t=>{ const el=document.getElementById('logoVer'); if(el) el.textContent=(t.split('\n')[0]||'ת').trim(); }).catch(()=>{});
 
   // Resize canvases to holder
@@ -47,7 +48,6 @@
     oCtx.clearRect(0,0,overlayCanvas.width, overlayCanvas.height);
     overlayCanvas.style.opacity = overlayVisible ? 1 : 0;
     if(!gridX.length || !gridY.length) return;
-    // ציור קווי רשת לפי גבולות הגריד
     const bounds = {
       left: gridX[0],
       right: gridX[gridX.length-1],
@@ -56,7 +56,7 @@
     };
     oCtx.lineWidth = 2;
     // אופקי - אדום
-    oCtx.strokeStyle = 'rgba(255,0,0,0.8)';
+    oCtx.strokeStyle = 'rgba(255,0,0,0.85)';
     gridY.forEach(y=>{
       oCtx.beginPath();
       oCtx.moveTo(bounds.left, y+0.5);
@@ -64,7 +64,7 @@
       oCtx.stroke();
     });
     // אנכי - כחול
-    oCtx.strokeStyle = 'rgba(0,128,255,0.8)';
+    oCtx.strokeStyle = 'rgba(0,128,255,0.85)';
     gridX.forEach(x=>{
       oCtx.beginPath();
       oCtx.moveTo(x+0.5, bounds.top);
@@ -75,19 +75,54 @@
 
   // File loaders
   async function onFile(file){
-    if(!file){ statusEl.textContent='לא נבחרה תמונה'; return; }
+    if(!file){ setStatus('לא נבחרה תמונה'); return; }
     const blob = file.slice(0, file.size, file.type);
     const img = await createImageBitmap(blob);
-    srcImg = img; statusEl.textContent='תמונה נטענה'; gridX=[]; gridY=[];
+    srcImg = img; setStatus('תמונה נטענה'); gridX=[]; gridY=[];
     detectCanvasBtn.disabled=false;
     resizeCanvases();
-    // Run automatically like Gemini flow
+    // Auto-run analysis
     analyzeGrid();
   }
   fileGal?.addEventListener('change', e => onFile(e.target.files[0]));
   fileCam?.addEventListener('change', e => onFile(e.target.files[0]));
 
-  // Gemini-style analyzer adapted to our canvases
+  // --- Helpers for full-cells filtering ---
+  function typicalStepAndTol(deltas) {
+    if (!deltas.length) return { step: 0, tol: 0 };
+    const sorted = deltas.slice().sort((a,b)=>a-b);
+    const mid = Math.floor(sorted.length/2);
+    const median = sorted.length % 2 ? sorted[mid] : (sorted[mid-1]+sorted[mid])/2;
+    const absDev = sorted.map(v => Math.abs(v - median)).sort((a,b)=>a-b);
+    const mad = absDev.length ? absDev[Math.floor(absDev.length/2)] : 0;
+    const baseTol = 0.15; // 15%
+    const extraTol = Math.min(0.15, (mad / Math.max(1, median)));
+    return { step: median, tol: baseTol + extraTol };
+  }
+  function longestFullRun(lines) {
+    if (lines.length < 2) return lines.slice();
+    const deltas = [];
+    for (let i=0; i<lines.length-1; i++) deltas.push(lines[i+1]-lines[i]);
+    const { step, tol } = typicalStepAndTol(deltas);
+    if (step <= 0) return lines.slice();
+    const lo = step * (1 - tol);
+    const hi = step * (1 + tol);
+    const ok = deltas.map(d => d >= lo && d <= hi);
+    let best = { len:0, s:-1, e:-1 }, cur = { len:0, s:-1 };
+    for (let i=0; i<ok.length; i++) {
+      if (ok[i]) {
+        if (cur.len === 0) cur.s = i;
+        cur.len++;
+        if (cur.len > best.len) best = { len: cur.len, s: cur.s, e: i };
+      } else {
+        cur = { len:0, s:-1 };
+      }
+    }
+    if (best.len <= 0) return lines.slice();
+    return lines.slice(best.s, best.e + 2);
+  }
+
+  // Gemini-style analyzer + full-cells filter
   function analyzeGrid(){
     const width = imageCanvas.width|0;
     const height = imageCanvas.height|0;
@@ -119,16 +154,28 @@
       gridX=[]; gridY=[]; drawOverlay(); return;
     }
 
-    // שמור לקנבס העליון
-    gridY = hLines;
-    gridX = vLines;
+    // --- Full-cells filtering ---
+    const fullY = longestFullRun(hLines);
+    const fullX = longestFullRun(vLines);
 
-    const gridRows = hLines.length - 1;
-    const gridCols = vLines.length - 1;
-    gridSizeOutput.textContent = `גודל התשבץ שזוהה: ${gridCols} עמודות × ${gridRows} שורות`;
+    if (fullY.length < 2 || fullX.length < 2) {
+      gridSizeOutput.textContent = "הרשת זוהתה אך לא נמצאו תאים מלאים עקביים.";
+      extraInfo.textContent = `(ללא סינון: ${vLines.length-1}×${hLines.length-1})`;
+      gridX=[]; gridY=[]; drawOverlay(); return;
+    }
+
+    gridY = fullY;
+    gridX = fullX;
+
+    const naiveRows = hLines.length - 1;
+    const naiveCols = vLines.length - 1;
+    const rows = fullY.length - 1;
+    const cols = fullX.length - 1;
+    gridSizeOutput.textContent = `גודל רשת (מלא): ${cols} עמודות × ${rows} שורות`;
+    extraInfo.textContent = `(ללא סינון: ${naiveCols}×${naiveRows})`;
 
     drawOverlay();
-    log(`זוהו ${hLines.length} קווים אופקיים ו-${vLines.length} קווים אנכיים.`);
+    log(`מלא: ${rows}×${cols} | ללא סינון: ${naiveRows}×${naiveCols}`);
   }
 
   function findLineCoordinates(projection, threshold){
@@ -160,7 +207,7 @@
         cells.push({ r, c, bbox:[x0,y0,x1-x0,y1-y0] });
       }
     }
-    const payload = { version:'v4.4.1-canvas', rows, cols, gridX, gridY, cells, created_at:new Date().toISOString() };
+    const payload = { version:'v4.4.2-canvas-full', rows, cols, gridX, gridY, cells, created_at:new Date().toISOString() };
     const blob = new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='grid.json'; a.click(); URL.revokeObjectURL(a.href);
   });
@@ -168,7 +215,7 @@
   // clear
   $('#clearBtn')?.addEventListener('click', ()=>{
     gridX=[]; gridY=[]; srcImg=null; iCtx.clearRect(0,0,imageCanvas.width,imageCanvas.height); oCtx.clearRect(0,0,overlayCanvas.width, overlayCanvas.height);
-    gridSizeOutput.textContent=''; statusEl.textContent='נוקה.'; logEl.textContent='';
+    gridSizeOutput.textContent=''; extraInfo.textContent=''; setStatus('נוקה.'); logEl.textContent='';
     detectCanvasBtn.disabled=true;
     if(fileGal) fileGal.value=''; if(fileCam) fileCam.value='';
   });
