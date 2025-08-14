@@ -1,64 +1,144 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#0b1220" />
-  <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="stylesheet" href="styles.css?v=4.4.2" />
-  <title>פתרון תשחץ • v4.4.2</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>זיהוי רשת תשבץ — Baseline (Gemini)</title>
+  <style>
+    body { font-family: -apple-system, system-ui, Arial; margin: 16px; background:#0b1220; color:#e8eef7; }
+    .card { background:#121a2c; border:1px solid #1e2b46; border-radius:12px; padding:14px; }
+    .muted { color:#8ba0b5; font-size:13px; }
+    canvas { width: 100%; height: auto; border:1px dashed #2b3f65; border-radius:10px; margin-top:10px; }
+    input[type=file] { display:none; }
+    label.btn { background:#1b2742; color:#e8eef7; border:1px solid #2b3f65; border-radius:10px; padding:10px 14px; font-weight:600; display:inline-block; cursor:pointer; }
+    #gridSizeOutput { margin-top:8px; }
+  </style>
 </head>
-<body class="rtl">
-  <header class="header">
-    <div class="h-row container">
-      <div class="logo" id="logoVer" title="גרסת שרת">ת</div>
-      <div class="title">פתרון תשחץ • <span id="uiVersion">v4.4.2</span></div>
-      <div class="toolbar">
-        <button id="hardRefreshBtn" class="btn btn-danger">רענון קשיח</button>
-        <button id="clearBtn" class="btn btn-ghost">נקה</button>
-      </div>
-    </div>
-  </header>
+<body>
+  <div class="card">
+    <h1>זיהוי רשת תשבץ — Baseline</h1>
+    <label for="imageLoader" class="btn">🖼️ בחר תמונה</label>
+    <input type="file" id="imageLoader" accept="image/*">
+    <p id="gridSizeOutput" class="muted"></p>
+    <canvas id="canvas"></canvas>
+  </div>
 
-  <main class="container">
-    <section class="card">
-      <h2>טעינת תמונה</h2>
-      <div class="controls">
-        <label for="fileInputGallery" class="btn btn-primary label-file">🖼️ גלריה</label>
-        <input id="fileInputGallery" type="file" accept="image/*" />
-        <label for="fileInputCamera" class="btn btn-accent label-file">📷 מצלמה</label>
-        <input id="fileInputCamera" type="file" accept="image/*" capture="environment" />
-      </div>
+<script>
+const imageLoader = document.getElementById('imageLoader');
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const gridSizeOutput = document.getElementById('gridSizeOutput');
 
-      <div class="canvas-wrap" id="canvasWrap">
-        <canvas id="imageCanvas"></canvas>
-        <canvas id="overlayCanvas" class="overlay"></canvas>
-      </div>
+const DARK_PIXEL_THRESHOLD = 128 * 3;
+const LINE_DETECTION_SENSITIVITY = 0.75; 
 
-      <div class="controls">
-        <button id="detectCanvasBtn" class="btn btn-primary" disabled>גלה גריד (Canvas)</button>
-        <button id="toggleOverlayBtn" class="btn">הצג/הסתר שכבה</button>
-        <button id="exportGridBtn" class="btn">ייצא grid.json</button>
-      </div>
+imageLoader.addEventListener('change', handleImageUpload);
 
-      <div class="status" id="status">מוכן. טען/י תמונה.</div>
-      <div class="helper" id="gridSizeOutput"></div>
-      <div class="helper small" id="extraInfo"></div>
-      <pre id="log" class="log"></pre>
-    </section>
-  </main>
-
-  <footer class="container">
-    <div class="helper">גרסת UI: v4.4.2 • הלוגו מציג את /version.txt</div>
-  </footer>
-
-  <div class="toast" id="toast"></div>
-
-  <script src="main.js?v=4.4.2"></script>
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => navigator.serviceWorker.register('sw.js'));
+function handleImageUpload(e) {
+    gridSizeOutput.textContent = ''; // איפוס הפלט הקודם
+    const reader = new FileReader();
+    reader.onload = function(event) {
+        const img = new Image();
+        img.onload = function() {
+            canvas.width = img.width;
+            canvas.height = img.height;
+            ctx.drawImage(img, 0, 0);
+            analyzeGrid();
+        }
+        img.src = event.target.result;
     }
-  </script>
+    reader.readAsDataURL(e.target.files[0]);
+}
+
+function analyzeGrid() {
+    const width = canvas.width;
+    const height = canvas.height;
+    const imageData = ctx.getImageData(0, 0, width, height).data;
+
+    let horizontalProjection = new Array(height).fill(0);
+    let verticalProjection = new Array(width).fill(0);
+
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const i = (y * width + x) * 4;
+            if (imageData[i] + imageData[i+1] + imageData[i+2] < DARK_PIXEL_THRESHOLD) {
+                horizontalProjection[y]++;
+                verticalProjection[x]++;
+            }
+        }
+    }
+    
+    const maxHorizontalValue = Math.max(...horizontalProjection);
+    const maxVerticalValue = Math.max(...verticalProjection);
+    const horizontalLineThreshold = maxHorizontalValue * LINE_DETECTION_SENSITIVITY;
+    const verticalLineThreshold = maxVerticalValue * LINE_DETECTION_SENSITIVITY;
+
+    const horizontalLinesY = findLineCoordinates(horizontalProjection, horizontalLineThreshold);
+    const verticalLinesX = findLineCoordinates(verticalProjection, verticalLineThreshold);
+
+    if (horizontalLinesY.length < 2 || verticalLinesX.length < 2) {
+        gridSizeOutput.textContent = "לא זוהתה רשת תקינה.";
+        return;
+    }
+
+    const gridBoundaries = {
+        top: horizontalLinesY[0],
+        bottom: horizontalLinesY[horizontalLinesY.length - 1],
+        left: verticalLinesX[0],
+        right: verticalLinesX[verticalLinesX.length - 1]
+    };
+
+    const gridRows = horizontalLinesY.length - 1;
+    const gridCols = verticalLinesX.length - 1;
+    gridSizeOutput.textContent = `גודל התשבץ שזוהה: ${gridCols} עמודות על ${gridRows} שורות`;
+
+    console.log(`זוהו ${horizontalLinesY.length} קווים אופקיים ו-${verticalLinesX.length} קווים אנכיים.`);
+    console.log("גבולות התשבץ:", gridBoundaries);
+
+    drawDetectedLines(horizontalLinesY, verticalLinesX, gridBoundaries);
+}
+
+function findLineCoordinates(projection, threshold) {
+    const lines = [];
+    let inLine = false;
+    let lineStart = 0;
+
+    for (let i = 0; i < projection.length; i++) {
+        if (projection[i] > threshold && !inLine) {
+            inLine = true;
+            lineStart = i;
+        } else if (projection[i] < threshold && inLine) {
+            inLine = false;
+            const lineEnd = i - 1;
+            lines.push(Math.round(lineStart + (lineEnd - lineStart) / 2));
+        }
+    }
+    if (inLine) {
+        const lineEnd = projection.length - 1;
+        lines.push(Math.round(lineStart + (lineEnd - lineStart) / 2));
+    }
+    return lines;
+}
+
+function drawDetectedLines(hLines, vLines, boundaries) {
+    ctx.lineWidth = 2;
+    
+    ctx.strokeStyle = 'rgba(255, 0, 0, 0.7)';
+    hLines.forEach(y => {
+        ctx.beginPath();
+        ctx.moveTo(boundaries.left, y);
+        ctx.lineTo(boundaries.right, y);
+        ctx.stroke();
+    });
+
+    ctx.strokeStyle = 'rgba(0, 0, 255, 0.7)';
+    vLines.forEach(x => {
+        ctx.beginPath();
+        ctx.moveTo(x, boundaries.top);
+        ctx.lineTo(x, boundaries.bottom);
+        ctx.stroke();
+    });
+}
+</script>
 </body>
 </html>
