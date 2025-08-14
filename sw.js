@@ -1,18 +1,16 @@
-const CACHE_NAME='tashachatz-skel-v4.3.1';
-const ASSETS=['./','./index.html','./styles.css','./main.js?v=4.2.3','./manifest.webmanifest','./icons/icon-192.png','./icons/icon-512.png','./version.txt'];
+const CACHE_NAME='tashachatz-skel-v4.4.0';
+const ASSETS=['./','./index.html','./styles.css?v=4.4.0','./main.js?v=4.4.0','./manifest.webmanifest','./icons/icon-192.png','./icons/icon-512.png','./version.txt'];
 
 self.addEventListener('install', e => {
   self.skipWaiting();
   e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(ASSETS)));
 });
-
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))),
   );
   self.clients.claim();
 });
-
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   const isHTML = e.request.mode === 'navigate' || (e.request.destination === 'document') || url.pathname.endsWith('.html') || url.pathname === '/';

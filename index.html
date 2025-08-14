@@ -5,15 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
   <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="stylesheet" href="styles.css" />
-  <title>פתרון תשחץ • v4.2.3</title>
+  <link rel="stylesheet" href="styles.css?v=4.4.0" />
+  <title>פתרון תשחץ • v4.4.0</title>
 </head>
 <body class="rtl">
   <header class="header">
     <div class="h-row container">
       <div class="logo" id="logoVer" title="גרסת שרת">ת</div>
-      <div class="title">פתרון תשחץ • <span id="uiVersion">v4.2.3</span></div>
-      <span id="cvBadge" class="badge wait">OpenCV: טעינה…</span>
+      <div class="title">פתרון תשחץ • <span id="uiVersion">v4.4.0</span></div>
       <div class="toolbar">
         <button id="hardRefreshBtn" class="btn btn-danger">רענון קשיח</button>
         <button id="clearBtn" class="btn btn-ghost">נקה</button>
@@ -38,7 +37,12 @@
       </div>
 
       <div class="controls">
-        <button id="detectGridBtn" class="btn btn-primary" disabled>גלה גריד (מקומי)</button>
+        <button id="detectCanvasBtn" class="btn btn-primary" disabled>גלה גריד (Canvas)</button>
+        <select id="modelSelect" class="select">
+          <option value="gpt-4o" selected>gpt-4o (ברירת מחדל)</option>
+          <option value="gpt-5">gpt-5</option>
+          <option value="gpt-5-mini">gpt-5-mini</option>
+        </select>
         <button id="detectApiBtn" class="btn btn-secondary">גלה גריד (API)</button>
         <button id="exportGridBtn" class="btn">ייצא grid.json</button>
         <button id="toggleOverlayBtn" class="btn">הצג/הסתר שכבה</button>
@@ -52,16 +56,15 @@
   </main>
 
   <footer class="container">
-    <div class="helper">גרסת UI: v4.2.3 • הלוגו מציג את /version.txt</div>
+    <div class="helper">גרסת UI: v4.4.0 • הלוגו מציג את /version.txt</div>
   </footer>
 
   <div class="toast" id="toast"></div>
 
-  <script src="main.js?v=4.2.3"></script>
-  <script async src="https://docs.opencv.org/4.x/opencv.js"></script>
+  <script src="main.js?v=4.4.0"></script>
   <script>
     if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(console.error));
+      window.addEventListener('load', () => navigator.serviceWorker.register('sw.js'));
     }
   </script>
 </body>
